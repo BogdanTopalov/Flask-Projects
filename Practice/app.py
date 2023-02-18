@@ -35,7 +35,9 @@ class ReaderModel(db.Model):
 class BookResource(Resource):
     def post(self):
         data = request.get_json()
+        reader_pk = data.pop('reader_pk')
         new_book = BookModel(**data)
+        new_book.reader_pk = reader_pk
         db.session.add(new_book)
         db.session.commit()
         return new_book.as_dict()
