@@ -19,6 +19,7 @@ class BookModel(db.Model):
     pk = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
     author = db.Column(db.String, nullable=False)
+    reader_pk = db.Column(db.Integer, db.ForeignKey('readers.pk'))
 
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -26,9 +27,9 @@ class BookModel(db.Model):
 
 class ReaderModel(db.Model):
     __tablename__ = 'readers'
-    pk = db.Column(db.Column(db.Integer, primary_key=True))
-    first_name = db.Column(db.Column(db.String, nullable=False))
-    last_name = db.Column(db.Column(db.String, nullable=False))
+    pk = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String, nullable=False)
+    last_name = db.Column(db.String, nullable=False)
 
 
 class BookResource(Resource):
