@@ -24,6 +24,13 @@ class BookModel(db.Model):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 
+class ReaderModel(db.Model):
+    __tablename__ = 'readers'
+    pk = db.Column(db.Column(db.Integer, primary_key=True))
+    first_name = db.Column(db.Column(db.String, nullable=False))
+    last_name = db.Column(db.Column(db.String, nullable=False))
+
+
 class BookResource(Resource):
     def post(self):
         data = request.get_json()
