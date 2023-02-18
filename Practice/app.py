@@ -1,6 +1,7 @@
 from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Resource, Api
+from flask_migrate import Migrate
 
 
 app = Flask(__name__)
@@ -9,6 +10,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgres:123456@localhost
 api = Api(app)
 
 db = SQLAlchemy(app)
+
+migrate = Migrate(app, db)
 
 
 class BookModel(db.Model):
@@ -28,10 +31,6 @@ class BookResource(Resource):
         db.session.add(new_book)
         db.session.commit()
         return new_book.as_dict()
-
-
-with app.app_context():
-    db.create_all()
 
 
 api.add_resource(BookResource, "/books/")
