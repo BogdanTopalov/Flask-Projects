@@ -7,6 +7,8 @@ from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from marshmallow import Schema, fields, validate, ValidationError, validates
+from password_strength import PasswordPolicy
+
 
 app = Flask(__name__)
 
@@ -82,6 +84,20 @@ def validate_name(name):
         raise ValidationError('At least two names separated with space are required')
 
 
+policy = PasswordPolicy.from_names(
+    uppercase=1,  # need min. 1 uppercase letters
+    numbers=1,  # need min. 1 digits
+    special=1,  # need min. 1 special characters
+    nonletters=1,  # need min. 1 non-letter characters (digits, specials, anything)
+)
+
+
+def validate_password(value):
+    errors = policy.test(value)
+    if errors:
+        raise ValidationError("Not a valid password")
+
+
 class BaseUserSchema(Schema):
     email = fields.Email(required=True)
     full_name = fields.String(
@@ -101,7 +117,10 @@ class BaseUserSchema(Schema):
 
 
 class UserSignInSchema(BaseUserSchema):
-    password = fields.String()
+    password = fields.String(
+        required=True,
+        validate=validate.And(validate.Length(min=8), validate_password)
+    )
 
 
 class SignUp(Resource):
