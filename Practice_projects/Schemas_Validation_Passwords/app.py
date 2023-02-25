@@ -43,6 +43,8 @@ class User(db.Model):
     create_on = db.Column(db.DateTime, server_default=func.now())
     updated_on = db.Column(db.DateTime, onupdate=func.now())
 
+    # clothes = db.relationship("Clothes", secondary=user_clothes)
+
 
 class ColorEnum(enum.Enum):
     pink = "pink"
@@ -76,6 +78,14 @@ class Clothes(db.Model):
     photo = db.Column(db.String(255), nullable=False)
     create_on = db.Column(db.DateTime, server_default=func.now())
     updated_on = db.Column(db.DateTime, onupdate=func.now())
+
+
+user_clothes = db.Table(
+    'user_clothes',
+    db.Model.metadata,
+    db.Column("user_id", db.Integer, db.ForeignKey("user.id")),
+    db.Column("clothes_id", db.Integer, db.ForeignKey("clothes.id"))
+)
 
 
 class SingleClothBaseSchema(Schema):
