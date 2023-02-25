@@ -6,8 +6,10 @@ from flask_migrate import Migrate
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
+from marshmallow_enum import EnumField
 from marshmallow import Schema, fields, validate, ValidationError, validates
 from password_strength import PasswordPolicy
+from werkzeug.security import generate_password_hash
 
 
 app = Flask(__name__)
@@ -76,6 +78,22 @@ class Clothes(db.Model):
     updated_on = db.Column(db.DateTime, onupdate=func.now())
 
 
+class SingleClothBaseSchema(Schema):
+    name = fields.String(required=True)
+    color = EnumField(ColorEnum, by_value=True)
+    size = EnumField(SizeEnum, by_value=True)
+
+
+class SingleClothSchemaIn(SingleClothBaseSchema):
+    photo = fields.String(required=True)
+
+
+class SingleClothSchemaOut(SingleClothBaseSchema):
+    id = fields.Integer()
+    create_on = fields.DateTime()
+    updated_on = fields.DateTime()
+
+
 # Custom validation function
 def validate_name(name):
     try:
@@ -116,11 +134,16 @@ class BaseUserSchema(Schema):
             raise ValidationError('At least two names separated with space are required')
 
 
-class UserSignInSchema(BaseUserSchema):
+class UserSignInSchema(BaseUserSchema):  # Request schema
     password = fields.String(
         required=True,
         validate=validate.And(validate.Length(min=8), validate_password)
     )
+
+
+class UserOutSchema(BaseUserSchema):  # Response schema
+    id = fields.Integer()
+    # clothes = fields.List(fields.Nested(Sin))
 
 
 class SignUp(Resource):
@@ -130,14 +153,31 @@ class SignUp(Resource):
         errors = schema.validate(data)
 
         if not errors:
+            data['password'] = generate_password_hash(data['password'], 'sha256')
             user = User(**data)
             db.session.add(user)
             db.session.commit()
-            return 201, data
+            # return 201, data
+            return UserOutSchema().dump(user)
         return errors
 
 
+class ClothesResource(Resource):
+    def post(self):
+        data = request.get_json()
+        clothes = Clothes(**data)
+        schema = SingleClothSchemaIn()
+        errors = schema.validate(data)
+        if errors:
+            return errors
+
+        db.session.add(clothes)
+        db.session.commit()
+        return SingleClothSchemaOut().dump(clothes)
+
+
 api.add_resource(SignUp, '/sign_up')
+api.add_resource(ClothesResource, '/clothes')
 
 
 if __name__ == "__main__":
