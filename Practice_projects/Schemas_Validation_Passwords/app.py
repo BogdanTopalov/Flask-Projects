@@ -6,8 +6,7 @@ from flask_migrate import Migrate
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
-from marshmallow import Schema, fields
-
+from marshmallow import Schema, fields, validate, ValidationError, validates
 
 app = Flask(__name__)
 
@@ -75,9 +74,30 @@ class Clothes(db.Model):
     updated_on = db.Column(db.DateTime, onupdate=func.now())
 
 
+# Custom validation function
+def validate_name(name):
+    try:
+        first_name, last_name = name.split()
+    except ValueError:
+        raise ValidationError('At least two names separated with space are required')
+
+
 class BaseUserSchema(Schema):
-    email = fields.Email()
-    full_name = fields.String()
+    email = fields.Email(required=True)
+    full_name = fields.String(
+        required=True,
+        # validate=validate.And(validate.Length(min=3, max=255), validate_name)
+    )
+
+    # Custom validation method. validate= should not be used above.
+    @validates('full_name')
+    def validate_name(self, name):
+        if not (255 >= len(name) >= 3):
+            raise ValidationError('Name length must be between 3 and 255 characters')
+        try:
+            first_name, last_name = name.split()
+        except ValueError:
+            raise ValidationError('At least two names separated with space are required')
 
 
 class UserSignInSchema(BaseUserSchema):
@@ -91,10 +111,14 @@ class SignUp(Resource):
         errors = schema.validate(data)
 
         if not errors:
-            db.session.add(User(**data))
+            user = User(**data)
+            db.session.add(user)
             db.session.commit()
+            return 201, data
+        return errors
 
-        return 201, data
+
+api.add_resource(SignUp, '/sign_up')
 
 
 if __name__ == "__main__":
