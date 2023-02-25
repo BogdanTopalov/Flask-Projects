@@ -80,8 +80,10 @@ class Clothes(db.Model):
 
 class SingleClothBaseSchema(Schema):
     name = fields.String(required=True)
-    color = EnumField(ColorEnum, by_value=True)
-    size = EnumField(SizeEnum, by_value=True)
+    # color = EnumField(ColorEnum, by_value=True) with the additional package extension
+    color = fields.Enum(ColorEnum)
+    # size = EnumField(SizeEnum, by_value=True) with the additional package extension
+    size = fields.Enum(SizeEnum)
 
 
 class SingleClothSchemaIn(SingleClothBaseSchema):
