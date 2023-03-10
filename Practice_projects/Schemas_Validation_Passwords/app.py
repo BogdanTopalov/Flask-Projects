@@ -1,7 +1,10 @@
 import enum
+from datetime import datetime, timedelta
 
+import jwt
 from decouple import config
 from flask import Flask, request
+from flask_httpauth import HTTPTokenAuth
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
@@ -27,6 +30,15 @@ api = Api(app)
 
 migrate = Migrate(app, db)
 
+auth = HTTPTokenAuth(scheme='Bearer')
+
+
+@auth.verify_token
+def verify_token(token):
+    token_decoded_data = User.decode_token(token)
+    user = User.query.filter_by(idlelib=token_decoded_data['sub'])
+    return user
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,6 +56,17 @@ class User(db.Model):
     updated_on = db.Column(db.DateTime, onupdate=func.now())
 
     # clothes = db.relationship("Clothes", secondary=user_clothes)
+
+    def encode_token(self):
+        payload = {
+            'sub': self.id,
+            'exp': datetime.utcnow() + timedelta(days=2)
+        }
+        return jwt.encode(payload, key=config('SECRET_KEY'), algorithm='HS256')
+
+    @staticmethod
+    def decode_token(token):
+        jwt.decode(token, key=config('SECRET_KEY'), algorithms=['HS256'])
 
 
 class ColorEnum(enum.Enum):
@@ -170,11 +193,12 @@ class SignUp(Resource):
             db.session.add(user)
             db.session.commit()
             # return 201, data
-            return UserOutSchema().dump(user)
+            return {'token': user.encode_token()}
         return errors
 
 
 class ClothesResource(Resource):
+    @auth.login_required
     def post(self):
         data = request.get_json()
         clothes = Clothes(**data)
