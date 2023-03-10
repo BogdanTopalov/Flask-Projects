@@ -8,10 +8,12 @@ from flask_httpauth import HTTPTokenAuth
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
+from jwt import DecodeError, InvalidSignatureError
 from sqlalchemy import func
 from marshmallow_enum import EnumField
 from marshmallow import Schema, fields, validate, ValidationError, validates
 from password_strength import PasswordPolicy
+from werkzeug.exceptions import BadRequest
 from werkzeug.security import generate_password_hash
 
 
@@ -36,7 +38,7 @@ auth = HTTPTokenAuth(scheme='Bearer')
 @auth.verify_token
 def verify_token(token):
     token_decoded_data = User.decode_token(token)
-    user = User.query.filter_by(idlelib=token_decoded_data['sub'])
+    user = User.query.filter_by(id=token_decoded_data['sub'])
     return user
 
 
@@ -66,7 +68,10 @@ class User(db.Model):
 
     @staticmethod
     def decode_token(token):
-        jwt.decode(token, key=config('SECRET_KEY'), algorithms=['HS256'])
+        try:
+            return jwt.decode(token, key=config('SECRET_KEY'), algorithms=['HS256'])
+        except (DecodeError, InvalidSignatureError) as ex:
+            raise BadRequest('Invalid or missing token')
 
 
 class ColorEnum(enum.Enum):
@@ -201,6 +206,7 @@ class ClothesResource(Resource):
     @auth.login_required
     def post(self):
         data = request.get_json()
+        # current_user = auth.current_user()
         clothes = Clothes(**data)
         schema = SingleClothSchemaIn()
         errors = schema.validate(data)
