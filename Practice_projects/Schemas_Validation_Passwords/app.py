@@ -13,7 +13,7 @@ from sqlalchemy import func
 from marshmallow_enum import EnumField
 from marshmallow import Schema, fields, validate, ValidationError, validates
 from password_strength import PasswordPolicy
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, Forbidden
 from werkzeug.security import generate_password_hash
 
 
@@ -35,11 +35,31 @@ migrate = Migrate(app, db)
 auth = HTTPTokenAuth(scheme='Bearer')
 
 
+def permission_required(permission_needed):
+    def decorated_func(func):
+        def wrapper(*args, **kwargs):
+            user = auth.current_user()
+
+            if user.role == permission_needed:
+                return func(*args, **kwargs)
+
+            raise Forbidden('You are not authorized')
+
+        return wrapper
+    return decorated_func
+
+
 @auth.verify_token
 def verify_token(token):
     token_decoded_data = User.decode_token(token)
     user = User.query.filter_by(id=token_decoded_data['sub'])
     return user
+
+
+class UserRolesEnum(enum.Enum):
+    super_admin = 'super admin'
+    admin = 'admin'
+    user = 'user'
 
 
 class User(db.Model):
@@ -56,6 +76,12 @@ class User(db.Model):
     # Use func.now()(=utc.now()) when saving datetime in db.
     create_on = db.Column(db.DateTime, server_default=func.now())
     updated_on = db.Column(db.DateTime, onupdate=func.now())
+
+    role = db.Column(
+        db.Enum(UserRolesEnum),
+        server_default=UserRolesEnum.user.name,
+        nullable=False
+    )
 
     # clothes = db.relationship("Clothes", secondary=user_clothes)
 
@@ -204,6 +230,7 @@ class SignUp(Resource):
 
 class ClothesResource(Resource):
     @auth.login_required
+    @permission_required(UserRolesEnum.admin)
     def post(self):
         data = request.get_json()
         # current_user = auth.current_user()
